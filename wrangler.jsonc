@@ -11,7 +11,7 @@
   "d1_databases": [{
     "binding": "DB",
     "database_name": "cebpar-db",
-    "database_id": "SUBSTITUIR_APOS_CRIAR_O_BANCO",
+    "database_id": "58747617-5a1e-4ff3-a420-76b0643e1e1f",
     "migrations_dir": "migrations"
   }]
 }
