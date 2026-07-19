@@ -19,7 +19,7 @@ if (projectPowerField) projectPowerField[2] = 'text';
 const projectCapexField = config.projects.fields.find(([key]) => key === 'capex_estimated_cents');
 if (projectCapexField) { projectCapexField[1] = 'CAPEX estimado (R$)'; projectCapexField[2] = 'text'; }
 const projectTypeField = config.projects.fields.find(([key]) => key === 'project_type');
-if (projectTypeField) projectTypeField[4] = 'Usina Fotovoltaica|Usina Fotovoltaica Flutuante|Sistema BESS|Carregador Elétrico|Eficiência Energética|Estudo de Viabilidade|Contrato ou Aditivo|Operação e Manutenção|Outro';
+if (projectTypeField) projectTypeField[4] = 'Usina Fotovoltaica|Sistema BESS|Carregador Elétrico|Eficiência Energética|Estudo de Viabilidade|Contrato ou Aditivo|Operação e Manutenção|Outro';
 const insertProjectFieldsAfter = (key, fields) => { const index = config.projects.fields.findIndex(([field]) => field === key); if (index >= 0) config.projects.fields.splice(index + 1, 0, ...fields); };
 insertProjectFieldsAfter('project_type', [
   ['generation_mode','Modalidade da usina','select',0,'Geração Centralizada|Geração Distribuída|Autoprodução'],
@@ -41,7 +41,7 @@ form = (type,item) => {
   const toggleField = (name, visible) => { const input = document.querySelector(`.dialog [name="${name}"]`); const label = input?.closest('label'); if (label) label.hidden = !visible; if (input) input.disabled = !visible; };
   const syncProjectContext = () => {
     const isCharger = projectType?.value === 'Carregador Elétrico';
-    const isSolar = ['Usina Fotovoltaica','Usina Fotovoltaica Flutuante'].includes(projectType?.value);
+    const isSolar = projectType?.value === 'Usina Fotovoltaica';
     ['organization','business_model','customer_consumption_mwh','tariff_group','average_demand_kw'].forEach(name => toggleField(name, !isCharger));
     ['charger_power_kw','charger_unit_count','charging_time_hours','tariff_value_per_kwh'].forEach(name => toggleField(name, isCharger));
     toggleField('generation_mode', isSolar);
