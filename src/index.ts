@@ -11,13 +11,14 @@ const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
 const enc = new TextEncoder();
+const PBKDF2_ITERATIONS = 100_000;
 const bytesToHex = (b: ArrayBuffer) => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
 const randomHex = (n = 32) => bytesToHex(crypto.getRandomValues(new Uint8Array(n)).buffer);
 const sha256 = async (value: string) => bytesToHex(await crypto.subtle.digest('SHA-256', enc.encode(value)));
 
 async function hashPassword(password: string, salt: string) {
   const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
-  return bytesToHex(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode(salt), iterations: 210000, hash: 'SHA-256' }, key, 256));
+  return bytesToHex(await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: enc.encode(salt), iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' }, key, 256));
 }
 
 const safeEqual = (a: string, b: string) => {

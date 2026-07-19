@@ -4,7 +4,7 @@ Aplicação interna multiusuário para gestão do portfólio de projetos de ener
 
 ## Segurança
 
-- Senhas derivadas com PBKDF2-SHA-256 e salt individual (210 mil iterações).
+- Senhas derivadas com PBKDF2-SHA-256 e salt individual (100 mil iterações, limite máximo aceito pelo Cloudflare Workers).
 - Sessão em cookie `HttpOnly`, `Secure` e `SameSite=Strict`, com duração de 8 horas.
 - Perfis Administrador, Editor e Visualizador aplicados também na API.
 - Exclusões são arquivadas; o histórico registra valores anteriores e posteriores.
