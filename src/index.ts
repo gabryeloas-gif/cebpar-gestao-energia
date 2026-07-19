@@ -10,6 +10,7 @@ type Vars = { user: User };
 const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 const now = () => new Date().toISOString();
 const id = () => crypto.randomUUID();
+const projectCode = () => `PRJ-${crypto.randomUUID().replaceAll('-', '').slice(0, 10).toUpperCase()}`;
 const enc = new TextEncoder();
 const PBKDF2_ITERATIONS = 100_000;
 const bytesToHex = (b: ArrayBuffer) => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join('');
@@ -112,7 +113,7 @@ app.get('/api/dashboard', async c => {
 });
 
 const specs: Record<string, { table: string; module: string; fields: string[]; required: string[] }> = {
-  projects: { table: 'projects', module: 'projects', required: ['code','name','project_type','status','phase'], fields: ['code','name','short_name','organization','project_type','business_model','location','description','owner_name','team','companies','status','phase','priority','criticality','dc_power_mwp','ac_power_mw','bess_power_mw','bess_energy_mwh','connection_voltage','generation_mode','distributor','annual_generation_mwh','technical_notes','capex_estimated_cents','capex_contracted_cents','annual_opex_cents','annual_revenue_cents','sei_process','contract_number','contractor','contract_value_cents','start_date','planned_end_date','actual_end_date','next_milestone','next_milestone_due','physical_progress','schedule_status','delay_reason'] },
+  projects: { table: 'projects', module: 'projects', required: ['name','project_type','status','phase'], fields: ['code','name','short_name','organization','project_type','business_model','location','description','owner_name','team','companies','status','phase','priority','criticality','dc_power_mwp','ac_power_mw','bess_power_mw','bess_energy_mwh','connection_voltage','generation_mode','distributor','annual_generation_mwh','technical_notes','capex_estimated_cents','capex_contracted_cents','annual_opex_cents','annual_revenue_cents','sei_process','contract_number','contractor','contract_value_cents','start_date','planned_end_date','actual_end_date','next_milestone','next_milestone_due','physical_progress','schedule_status','delay_reason'] },
   pending: { table: 'pending_items', module: 'pending', required: ['description','status'], fields: ['project_id','description','category','internal_owner','external_owner','due_date','priority','criticality','status','origin','required_action','comments','completed_at','completion_evidence'] },
   activities: { table: 'activities', module: 'activities', required: ['project_id','activity_date','title','activity_type'], fields: ['project_id','activity_date','title','description','action_taken','result','people','activity_type','future_action','future_due_date','next_owner'] },
   documents: { table: 'documents', module: 'documents', required: ['title','document_type'], fields: ['project_id','title','document_type','sei_number','official_letter_number','version_label','document_date','owner_name','status','external_url','file_key','notes'] }
@@ -133,6 +134,7 @@ for (const [route, spec] of Object.entries(specs)) {
     const b = await json(c); for (const f of spec.required) if (!b[f]) return c.json({ error: `Campo obrigatório: ${f}` }, 400);
     const user = c.get('user'), rid = id(), ts = now(), data = clean(b, spec.fields);
     const base: Record<string,unknown> = { id: rid, ...data, created_at: ts, created_by: user.id, updated_at: ts, updated_by: user.id, version: 1 };
+    if (route === 'projects') base.code = projectCode();
     if (route === 'projects' || route === 'pending') base.last_activity_at = ts;
     const keys = Object.keys(base); await c.env.DB.prepare(`INSERT INTO ${spec.table}(${keys.join(',')}) VALUES(${keys.map(()=>'?').join(',')})`).bind(...Object.values(base)).run();
     await audit(c.env.DB,user.id,spec.module,rid,'create',null,base,b.reason); return c.json({ item: base },201);
