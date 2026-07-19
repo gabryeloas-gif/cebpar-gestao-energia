@@ -1,3 +1,9 @@
+:root {
+  --green: #004b87;
+  --green2: #005f9e;
+  --lime: #c69a3a;
+}
+
 .company-logo {
   width: 112px;
   height: 48px;

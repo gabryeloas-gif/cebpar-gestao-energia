@@ -144,6 +144,7 @@ for (const [route, spec] of Object.entries(specs)) {
   app.post(`/api/${route}`, requireRole('admin','editor'), async c => {
     const b = await json(c); for (const f of spec.required) if (!b[f]) return c.json({ error: `Campo obrigatório: ${f}` }, 400);
     const user = c.get('user'), rid = id(), ts = now(), data = clean(b, spec.fields);
+    if (route === 'projects' && data.related_project_id === '') data.related_project_id = null;
     if (route === 'projects' && data.dc_power_mwp !== undefined && data.dc_power_mwp !== '') { const power = parseDecimal(data.dc_power_mwp); if (power === undefined) return c.json({ error: 'Informe uma potência válida.' }, 400); data.dc_power_mwp = power; }
     const base: Record<string,unknown> = { id: rid, ...data, created_at: ts, created_by: user.id, updated_at: ts, updated_by: user.id, version: 1 };
     if (route === 'projects') base.code = projectCode();
@@ -156,7 +157,7 @@ for (const [route, spec] of Object.entries(specs)) {
     const before=await c.env.DB.prepare(`SELECT * FROM ${spec.table} WHERE id=? AND deleted_at IS NULL`).bind(rid).first<any>();
     if(!before) return c.json({error:'Registro não encontrado.'},404);
     if(Number(b.version)!==Number(before.version)) return c.json({error:'Este registro foi alterado por outra pessoa. Atualize a tela antes de salvar.',conflict:true,current:before},409);
-    const data=clean(b,spec.fields), ts=now(); if (route==='projects' && data.dc_power_mwp !== undefined && data.dc_power_mwp !== '') { const power = parseDecimal(data.dc_power_mwp); if (power === undefined) return c.json({ error: 'Informe uma potência válida.' }, 400); data.dc_power_mwp = power; } data.updated_at=ts; data.updated_by=user.id; data.version=before.version+1; if(route==='projects'||route==='pending') data.last_activity_at=ts;
+    const data=clean(b,spec.fields), ts=now(); if (route==='projects' && data.related_project_id === '') data.related_project_id = null; if (route==='projects' && data.related_project_id === rid) return c.json({ error: 'Um projeto não pode ser relacionado a ele próprio.' }, 400); if (route==='projects' && data.dc_power_mwp !== undefined && data.dc_power_mwp !== '') { const power = parseDecimal(data.dc_power_mwp); if (power === undefined) return c.json({ error: 'Informe uma potência válida.' }, 400); data.dc_power_mwp = power; } data.updated_at=ts; data.updated_by=user.id; data.version=before.version+1; if(route==='projects'||route==='pending') data.last_activity_at=ts;
     const keys=Object.keys(data); await c.env.DB.prepare(`UPDATE ${spec.table} SET ${keys.map(k=>`${k}=?`).join(',')} WHERE id=? AND version=?`).bind(...Object.values(data),rid,before.version).run();
     const after={...before,...data}; await audit(c.env.DB,user.id,spec.module,rid,'update',before,after,b.reason); return c.json({item:after});
   });
