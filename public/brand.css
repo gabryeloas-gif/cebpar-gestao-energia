@@ -1,0 +1,14 @@
+.company-logo {
+  width: 112px;
+  height: 48px;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.side .company-logo {
+  width: 140px;
+  height: 54px;
+  padding: 4px;
+  border-radius: 7px;
+  background: #fff;
+}

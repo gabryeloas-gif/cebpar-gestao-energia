@@ -85,7 +85,6 @@ app.post('/api/auth/setup', async c => {
   await c.env.DB.prepare(`INSERT INTO users(id,name,email,password_hash,password_salt,role,created_at,updated_at) VALUES(?,?,?,?,?,'admin',?,?)`)
     .bind(uid, String(b.name).trim(), String(b.email).trim().toLowerCase(), await hashPassword(b.password, salt), salt, ts, ts).run();
   await audit(c.env.DB, uid, 'users', uid, 'create', null, { name: b.name, email: b.email, role: 'admin' });
-  await seedDemo(c.env.DB, uid);
   return c.json({ ok: true }, 201);
 });
 app.post('/api/auth/login', async c => {
