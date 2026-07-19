@@ -53,6 +53,20 @@ const parseDecimal = (value: unknown) => {
   const parsed = Number(normalized);
   return Number.isFinite(parsed) ? parsed : undefined;
 };
+const normalizeProjectMetrics = (data: Record<string, unknown>) => {
+  const decimalFields = ['customer_consumption_mwh','average_demand_kw','charger_power_kw','charging_time_hours','tariff_value_per_kwh'];
+  for (const field of decimalFields) {
+    if (data[field] === undefined) continue;
+    if (data[field] === '') { data[field] = null; continue; }
+    const parsed = parseDecimal(data[field]);
+    if (parsed === undefined) return `Informe um valor válido para ${field}.`;
+    data[field] = parsed;
+  }
+  if (data.charger_unit_count !== undefined) {
+    if (data.charger_unit_count === '') data.charger_unit_count = null;
+    else { const units = parseDecimal(data.charger_unit_count); if (units === undefined || !Number.isInteger(units) || units < 1) return 'Informe uma quantidade válida de carregadores.'; data.charger_unit_count = units; }
+  }
+};
 
 async function audit(db: D1Database, userId: string, module: string, recordId: string, action: string, before: unknown, after: unknown, reason?: string) {
   await db.prepare(`INSERT INTO audit_log(id,user_id,occurred_at,module,record_id,action,before_json,after_json,reason) VALUES(?,?,?,?,?,?,?,?,?)`)
@@ -121,7 +135,7 @@ app.get('/api/dashboard', async c => {
 });
 
 const specs: Record<string, { table: string; module: string; fields: string[]; required: string[] }> = {
-  projects: { table: 'projects', module: 'projects', required: ['name','project_type','status','phase'], fields: ['code','name','short_name','related_project_id','organization','project_type','business_model','location','description','owner_name','team','companies','status','phase','priority','criticality','dc_power_mwp','ac_power_mw','bess_power_mw','bess_energy_mwh','connection_voltage','generation_mode','distributor','annual_generation_mwh','technical_notes','capex_estimated_cents','capex_contracted_cents','annual_opex_cents','annual_revenue_cents','sei_process','contract_number','contractor','contract_value_cents','start_date','planned_end_date','actual_end_date','next_milestone','next_milestone_due','physical_progress','schedule_status','delay_reason'] },
+  projects: { table: 'projects', module: 'projects', required: ['name','project_type','status','phase'], fields: ['code','name','short_name','related_project_id','organization','project_type','business_model','location','description','owner_name','team','companies','status','phase','priority','criticality','dc_power_mwp','ac_power_mw','bess_power_mw','bess_energy_mwh','connection_voltage','generation_mode','distributor','annual_generation_mwh','customer_consumption_mwh','tariff_group','average_demand_kw','charger_power_kw','charger_unit_count','charging_time_hours','tariff_value_per_kwh','technical_notes','capex_estimated_cents','capex_contracted_cents','annual_opex_cents','annual_revenue_cents','sei_process','contract_number','contractor','contract_value_cents','start_date','planned_end_date','actual_end_date','next_milestone','next_milestone_due','physical_progress','schedule_status','delay_reason'] },
   pending: { table: 'pending_items', module: 'pending', required: ['description','status'], fields: ['project_id','description','category','internal_owner','external_owner','due_date','priority','criticality','status','origin','required_action','comments','completed_at','completion_evidence'] },
   activities: { table: 'activities', module: 'activities', required: ['project_id','activity_date','title','activity_type'], fields: ['project_id','activity_date','title','description','action_taken','result','people','activity_type','future_action','future_due_date','next_owner'] },
   documents: { table: 'documents', module: 'documents', required: ['title','document_type'], fields: ['project_id','title','document_type','sei_number','official_letter_number','version_label','document_date','owner_name','status','external_url','file_key','notes'] }
@@ -147,6 +161,7 @@ for (const [route, spec] of Object.entries(specs)) {
     if (route === 'projects' && data.related_project_id === '') data.related_project_id = null;
     if (route === 'projects' && data.dc_power_mwp !== undefined && data.dc_power_mwp !== '') { const power = parseDecimal(data.dc_power_mwp); if (power === undefined) return c.json({ error: 'Informe uma potência válida.' }, 400); data.dc_power_mwp = power; }
     if (route === 'projects' && data.capex_estimated_cents !== undefined && data.capex_estimated_cents !== '') { const capex = parseDecimal(data.capex_estimated_cents); if (capex === undefined) return c.json({ error: 'Informe um CAPEX válido.' }, 400); data.capex_estimated_cents = Math.round(capex * 100); }
+    if (route === 'projects') { const metricsError = normalizeProjectMetrics(data); if (metricsError) return c.json({ error: metricsError }, 400); }
     const base: Record<string,unknown> = { id: rid, ...data, created_at: ts, created_by: user.id, updated_at: ts, updated_by: user.id, version: 1 };
     if (route === 'projects') base.code = projectCode();
     if (route === 'projects' || route === 'pending') base.last_activity_at = ts;
@@ -158,7 +173,7 @@ for (const [route, spec] of Object.entries(specs)) {
     const before=await c.env.DB.prepare(`SELECT * FROM ${spec.table} WHERE id=? AND deleted_at IS NULL`).bind(rid).first<any>();
     if(!before) return c.json({error:'Registro não encontrado.'},404);
     if(Number(b.version)!==Number(before.version)) return c.json({error:'Este registro foi alterado por outra pessoa. Atualize a tela antes de salvar.',conflict:true,current:before},409);
-    const data=clean(b,spec.fields), ts=now(); if (route==='projects' && data.related_project_id === '') data.related_project_id = null; if (route==='projects' && data.related_project_id === rid) return c.json({ error: 'Um projeto não pode ser relacionado a ele próprio.' }, 400); if (route==='projects' && data.dc_power_mwp !== undefined && data.dc_power_mwp !== '') { const power = parseDecimal(data.dc_power_mwp); if (power === undefined) return c.json({ error: 'Informe uma potência válida.' }, 400); data.dc_power_mwp = power; } if (route==='projects' && data.capex_estimated_cents !== undefined && data.capex_estimated_cents !== '') { const capex = parseDecimal(data.capex_estimated_cents); if (capex === undefined) return c.json({ error: 'Informe um CAPEX válido.' }, 400); data.capex_estimated_cents = Math.round(capex * 100); } data.updated_at=ts; data.updated_by=user.id; data.version=before.version+1; if(route==='projects'||route==='pending') data.last_activity_at=ts;
+    const data=clean(b,spec.fields), ts=now(); if (route==='projects' && data.related_project_id === '') data.related_project_id = null; if (route==='projects' && data.related_project_id === rid) return c.json({ error: 'Um projeto não pode ser relacionado a ele próprio.' }, 400); if (route==='projects' && data.dc_power_mwp !== undefined && data.dc_power_mwp !== '') { const power = parseDecimal(data.dc_power_mwp); if (power === undefined) return c.json({ error: 'Informe uma potência válida.' }, 400); data.dc_power_mwp = power; } if (route==='projects' && data.capex_estimated_cents !== undefined && data.capex_estimated_cents !== '') { const capex = parseDecimal(data.capex_estimated_cents); if (capex === undefined) return c.json({ error: 'Informe um CAPEX válido.' }, 400); data.capex_estimated_cents = Math.round(capex * 100); } if (route==='projects') { const metricsError = normalizeProjectMetrics(data); if (metricsError) return c.json({ error: metricsError }, 400); } data.updated_at=ts; data.updated_by=user.id; data.version=before.version+1; if(route==='projects'||route==='pending') data.last_activity_at=ts;
     const keys=Object.keys(data); await c.env.DB.prepare(`UPDATE ${spec.table} SET ${keys.map(k=>`${k}=?`).join(',')} WHERE id=? AND version=?`).bind(...Object.values(data),rid,before.version).run();
     const after={...before,...data}; await audit(c.env.DB,user.id,spec.module,rid,'update',before,after,b.reason); return c.json({item:after});
   });
