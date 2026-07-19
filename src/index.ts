@@ -45,6 +45,14 @@ app.use('/api/*', async (c, next) => {
 const requireRole = (...roles: Role[]) => async (c: any, next: any) => roles.includes(c.get('user').role) ? next() : c.json({ error: 'Você não tem permissão para esta ação.' }, 403);
 const json = async (c: any) => { try { return await c.req.json(); } catch { return {}; } };
 const clean = (obj: Record<string, unknown>, fields: string[]) => Object.fromEntries(fields.filter(f => obj[f] !== undefined).map(f => [f, obj[f]]));
+const parseDecimal = (value: unknown) => {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
+  const raw = String(value).trim();
+  if (!raw) return undefined;
+  const normalized = raw.includes(',') ? raw.replaceAll('.', '').replace(',', '.') : raw;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
 
 async function audit(db: D1Database, userId: string, module: string, recordId: string, action: string, before: unknown, after: unknown, reason?: string) {
   await db.prepare(`INSERT INTO audit_log(id,user_id,occurred_at,module,record_id,action,before_json,after_json,reason) VALUES(?,?,?,?,?,?,?,?,?)`)
@@ -113,7 +121,7 @@ app.get('/api/dashboard', async c => {
 });
 
 const specs: Record<string, { table: string; module: string; fields: string[]; required: string[] }> = {
-  projects: { table: 'projects', module: 'projects', required: ['name','project_type','status','phase'], fields: ['code','name','short_name','organization','project_type','business_model','location','description','owner_name','team','companies','status','phase','priority','criticality','dc_power_mwp','ac_power_mw','bess_power_mw','bess_energy_mwh','connection_voltage','generation_mode','distributor','annual_generation_mwh','technical_notes','capex_estimated_cents','capex_contracted_cents','annual_opex_cents','annual_revenue_cents','sei_process','contract_number','contractor','contract_value_cents','start_date','planned_end_date','actual_end_date','next_milestone','next_milestone_due','physical_progress','schedule_status','delay_reason'] },
+  projects: { table: 'projects', module: 'projects', required: ['name','project_type','status','phase'], fields: ['code','name','short_name','related_project_id','organization','project_type','business_model','location','description','owner_name','team','companies','status','phase','priority','criticality','dc_power_mwp','ac_power_mw','bess_power_mw','bess_energy_mwh','connection_voltage','generation_mode','distributor','annual_generation_mwh','technical_notes','capex_estimated_cents','capex_contracted_cents','annual_opex_cents','annual_revenue_cents','sei_process','contract_number','contractor','contract_value_cents','start_date','planned_end_date','actual_end_date','next_milestone','next_milestone_due','physical_progress','schedule_status','delay_reason'] },
   pending: { table: 'pending_items', module: 'pending', required: ['description','status'], fields: ['project_id','description','category','internal_owner','external_owner','due_date','priority','criticality','status','origin','required_action','comments','completed_at','completion_evidence'] },
   activities: { table: 'activities', module: 'activities', required: ['project_id','activity_date','title','activity_type'], fields: ['project_id','activity_date','title','description','action_taken','result','people','activity_type','future_action','future_due_date','next_owner'] },
   documents: { table: 'documents', module: 'documents', required: ['title','document_type'], fields: ['project_id','title','document_type','sei_number','official_letter_number','version_label','document_date','owner_name','status','external_url','file_key','notes'] }
@@ -127,12 +135,16 @@ for (const [route, spec] of Object.entries(specs)) {
     if (project && route !== 'projects') { clauses.push('t.project_id=?'); values.push(project); }
     if (status && route !== 'activities') { clauses.push('t.status=?'); values.push(status); }
     const order = route === 'activities' ? 't.activity_date DESC' : route === 'pending' ? 't.due_date IS NULL,t.due_date' : 't.updated_at DESC';
-    const rows = await c.env.DB.prepare(`SELECT t.*${route === 'projects' ? '' : ',p.name project_name'} FROM ${spec.table} t ${route === 'projects' ? '' : 'LEFT JOIN projects p ON p.id=t.project_id'} WHERE ${clauses.join(' AND ')} ORDER BY ${order} LIMIT 500`).bind(...values).all();
+    const related = route === 'projects' ? ',related.name related_project_name' : '';
+    const join = route === 'projects' ? 'LEFT JOIN projects related ON related.id=t.related_project_id' : 'LEFT JOIN projects p ON p.id=t.project_id';
+    const projectName = route === 'projects' ? '' : ',p.name project_name';
+    const rows = await c.env.DB.prepare(`SELECT t.*${projectName}${related} FROM ${spec.table} t ${join} WHERE ${clauses.join(' AND ')} ORDER BY ${order} LIMIT 500`).bind(...values).all();
     return c.json({ items: rows.results });
   });
   app.post(`/api/${route}`, requireRole('admin','editor'), async c => {
     const b = await json(c); for (const f of spec.required) if (!b[f]) return c.json({ error: `Campo obrigatório: ${f}` }, 400);
     const user = c.get('user'), rid = id(), ts = now(), data = clean(b, spec.fields);
+    if (route === 'projects' && data.dc_power_mwp !== undefined && data.dc_power_mwp !== '') { const power = parseDecimal(data.dc_power_mwp); if (power === undefined) return c.json({ error: 'Informe uma potência válida.' }, 400); data.dc_power_mwp = power; }
     const base: Record<string,unknown> = { id: rid, ...data, created_at: ts, created_by: user.id, updated_at: ts, updated_by: user.id, version: 1 };
     if (route === 'projects') base.code = projectCode();
     if (route === 'projects' || route === 'pending') base.last_activity_at = ts;
@@ -144,7 +156,7 @@ for (const [route, spec] of Object.entries(specs)) {
     const before=await c.env.DB.prepare(`SELECT * FROM ${spec.table} WHERE id=? AND deleted_at IS NULL`).bind(rid).first<any>();
     if(!before) return c.json({error:'Registro não encontrado.'},404);
     if(Number(b.version)!==Number(before.version)) return c.json({error:'Este registro foi alterado por outra pessoa. Atualize a tela antes de salvar.',conflict:true,current:before},409);
-    const data=clean(b,spec.fields), ts=now(); data.updated_at=ts; data.updated_by=user.id; data.version=before.version+1; if(route==='projects'||route==='pending') data.last_activity_at=ts;
+    const data=clean(b,spec.fields), ts=now(); if (route==='projects' && data.dc_power_mwp !== undefined && data.dc_power_mwp !== '') { const power = parseDecimal(data.dc_power_mwp); if (power === undefined) return c.json({ error: 'Informe uma potência válida.' }, 400); data.dc_power_mwp = power; } data.updated_at=ts; data.updated_by=user.id; data.version=before.version+1; if(route==='projects'||route==='pending') data.last_activity_at=ts;
     const keys=Object.keys(data); await c.env.DB.prepare(`UPDATE ${spec.table} SET ${keys.map(k=>`${k}=?`).join(',')} WHERE id=? AND version=?`).bind(...Object.values(data),rid,before.version).run();
     const after={...before,...data}; await audit(c.env.DB,user.id,spec.module,rid,'update',before,after,b.reason); return c.json({item:after});
   });
