@@ -1,5 +1,5 @@
 :root {
-  --green: #004b87;
+  --green: #003f6b;
   --green2: #005f9e;
   --lime: #c69a3a;
 }
@@ -12,9 +12,26 @@
 }
 
 .side .company-logo {
-  width: 140px;
+  width: 104px;
   height: 54px;
   padding: 4px;
   border-radius: 7px;
   background: #fff;
+}
+
+.side .brand {
+  gap: 8px;
+}
+
+.side .brand h1 {
+  color: #fff;
+  font-size: 16px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.side .brand small {
+  color: #d5e8f6;
+  font-size: 13px;
+  font-weight: 600;
 }
