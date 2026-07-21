@@ -1,0 +1,35 @@
+CREATE TABLE crm_opportunities (
+  id TEXT PRIMARY KEY,
+  opportunity_name TEXT NOT NULL,
+  company_name TEXT NOT NULL,
+  contact_name TEXT,
+  contact_role TEXT,
+  contact_email TEXT,
+  contact_phone TEXT,
+  project_type TEXT,
+  business_model TEXT,
+  location TEXT,
+  distributor TEXT,
+  estimated_consumption_mwh REAL,
+  estimated_demand_kw REAL,
+  potential_power_mwp REAL,
+  stage TEXT NOT NULL,
+  probability INTEGER,
+  expected_close_date TEXT,
+  owner_name TEXT,
+  next_action TEXT,
+  next_action_due TEXT,
+  project_id TEXT REFERENCES projects(id),
+  notes TEXT,
+  lost_reason TEXT,
+  last_activity_at TEXT,
+  created_at TEXT NOT NULL,
+  created_by TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT NOT NULL,
+  deleted_at TEXT,
+  version INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE INDEX idx_crm_opportunities_stage ON crm_opportunities(stage);
+CREATE INDEX idx_crm_opportunities_project ON crm_opportunities(project_id);
