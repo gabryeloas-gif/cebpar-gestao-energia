@@ -28,7 +28,7 @@ const insertProjectFieldsAfter = (key, fields) => { const index = config.project
 insertProjectFieldsAfter('project_type', [
   ['generation_mode','Modalidade da usina','select',0,'Geração Centralizada|Geração Distribuída|Autoprodução'],
   ['customer_consumption_mwh','Consumo do cliente (MWh/mês)'],
-  ['tariff_group','Grupo tarifário'],
+  ['tariff_group','Grupos tarifários','checkboxes',0,'A2 - Azul|A3a - Azul|A3a - Verde|A4 - Azul|A4 - Verde|AS - Azul|AS - Verde|B1|B2|B3|B4a|B4b'],
   ['average_demand_kw','Demanda média (kW)'],
   ['charger_power_kw','Potência do carregador (kW)'],
   ['charger_unit_count','Quantidade de carregadores'],
@@ -48,14 +48,24 @@ listing = async type => {
   const counts = Object.fromEntries(stages.map(stage => [stage, items.filter(item => item.stage === stage).length]));
   $('#content')?.insertAdjacentHTML('afterbegin', `<section class="crm-pipeline"><div><p class="eyebrow">PIPELINE COMERCIAL</p><h3>Oportunidades em acompanhamento</h3></div><div class="crm-stages">${stages.map((stage,index) => `<article><i style="background:${palette[index % palette.length]}"></i><span>${esc(stage)}</span><b>${counts[stage]}</b></article>`).join('')}</div></section>`);
 };
-function form(type,item){const c=config[type];document.body.insertAdjacentHTML('beforeend',`<div class="modal"><form class="dialog"><div class="dialog-head"><h3>${item?'Editar':'Cadastrar'} ${c.sing}</h3><button type="button" class="ghost close">Fechar</button></div><div class="form-grid">${c.fields.map(([k,l,t='text',req,opts])=>{let control=t==='textarea'?`<textarea name="${k}" ${req?'required':''}>${esc(item?.[k]||'')}</textarea>`:t==='select'?`<select name="${k}" ${req?'required':''}><option value="">Selecione</option>${opts.split('|').map(o=>`<option ${item?.[k]===o?'selected':''}>${o}</option>`).join('')}</select>`:t==='project'?`<select name="${k}" ${req?'required':''}><option value="">Selecione</option>${cache.projects.map(p=>`<option value="${p.id}" ${item?.[k]===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`:`<input name="${k}" type="${t}" value="${esc(item?.[k]??'')}" ${req?'required':''}>`;return`<label class="${t==='textarea'?'span2':''}">${l}${control}</label>`}).join('')}</div><div class="actions"><button type="button" class="ghost close">Cancelar</button><button class="primary">Salvar</button></div></form></div>`);document.querySelectorAll('.close').forEach(b=>b.onclick=()=>$('.modal').remove());$('.dialog').onsubmit=async e=>{e.preventDefault();const b=Object.fromEntries(new FormData(e.target));c.fields.filter(x=>x[2]==='number').forEach(x=>{if(b[x[0]]!=='')b[x[0]]=Number(b[x[0]])});if(item)b.version=item.version;try{await api('/'+type+(item?'/'+item.id:''),{method:item?'PUT':'POST',body:JSON.stringify(b)});$('.modal').remove();toast('Registro salvo com sucesso.');navigate(type)}catch(x){toast(x.message)}}}
+function form(type,item){
+  const c=config[type];
+  const selectedOptions = value => { try { const parsed=typeof value==='string' ? JSON.parse(value) : value; return Array.isArray(parsed) ? parsed : parsed ? [String(parsed)] : []; } catch { return value ? [String(value)] : []; } };
+  document.body.insertAdjacentHTML('beforeend',`<div class="modal"><form class="dialog"><div class="dialog-head"><h3>${item?'Editar':'Cadastrar'} ${c.sing}</h3><button type="button" class="ghost close">Fechar</button></div><div class="form-grid">${c.fields.map(([k,l,t='text',req,opts])=>{
+    if(t==='checkboxes'){const selected=selectedOptions(item?.[k]);return`<fieldset class="tariff-options span2"><legend>${l}</legend><p>Marque todos os grupos atendidos pelo cliente.</p><div>${opts.split('|').map(option=>`<label class="tariff-option ${option.includes('Azul')?'blue':option.includes('Verde')?'green':''}"><input name="${k}" type="checkbox" value="${esc(option)}" ${selected.includes(option)?'checked':''}><span>${esc(option)}</span></label>`).join('')}</div></fieldset>`;}
+    const control=t==='textarea'?`<textarea name="${k}" ${req?'required':''}>${esc(item?.[k]||'')}</textarea>`:t==='select'?`<select name="${k}" ${req?'required':''}><option value="">Selecione</option>${opts.split('|').map(o=>`<option ${item?.[k]===o?'selected':''}>${o}</option>`).join('')}</select>`:t==='project'?`<select name="${k}" ${req?'required':''}><option value="">Selecione</option>${cache.projects.map(p=>`<option value="${p.id}" ${item?.[k]===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select>`:`<input name="${k}" type="${t}" value="${esc(item?.[k]??'')}" ${req?'required':''}>`;
+    return`<label class="${t==='textarea'?'span2':''}">${l}${control}</label>`;
+  }).join('')}</div><div class="actions"><button type="button" class="ghost close">Cancelar</button><button class="primary">Salvar</button></div></form></div>`);
+  document.querySelectorAll('.close').forEach(b=>b.onclick=()=>$('.modal').remove());
+  $('.dialog').onsubmit=async e=>{e.preventDefault();const b=Object.fromEntries(new FormData(e.target));c.fields.filter(x=>x[2]==='number').forEach(x=>{if(b[x[0]]!=='')b[x[0]]=Number(b[x[0]])});c.fields.filter(x=>x[2]==='checkboxes').forEach(x=>{b[x[0]]=JSON.stringify([...e.target.querySelectorAll(`[name="${x[0]}"]:checked`)].map(input=>input.value))});if(item)b.version=item.version;try{await api('/'+type+(item?'/'+item.id:''),{method:item?'PUT':'POST',body:JSON.stringify(b)});$('.modal').remove();toast('Registro salvo com sucesso.');navigate(type)}catch(x){toast(x.message)}}
+}
 const projectForm = form;
 form = (type,item) => {
   projectForm(type, type==='projects' && item?.capex_estimated_cents != null ? {...item,capex_estimated_cents:Number(item.capex_estimated_cents)/100} : item);
   if (type !== 'projects') return;
   const projectType = document.querySelector('.dialog [name="project_type"]');
   const projectPhase = document.querySelector('.dialog [name="phase"]');
-  const toggleField = (name, visible) => { const input = document.querySelector(`.dialog [name="${name}"]`); const label = input?.closest('label'); if (label) label.hidden = !visible; if (input) input.disabled = !visible; };
+  const toggleField = (name, visible) => { const inputs = [...document.querySelectorAll(`.dialog [name="${name}"]`)]; const wrapper = inputs[0]?.closest('label,fieldset'); if (wrapper) wrapper.hidden = !visible; inputs.forEach(input => input.disabled = !visible); };
   const syncProjectContext = () => {
     const isCharger = projectType?.value === 'Carregador Elétrico';
     const isSolar = projectType?.value === 'Usina Fotovoltaica';
@@ -77,6 +87,7 @@ const auditJson = value => { try { return typeof value === 'string' ? JSON.parse
 const auditValue = (field, value) => {
   if (value === null || value === undefined || value === '') return 'não informado';
   if (field === 'capex_estimated_cents') return money(Number(value));
+  if (field === 'tariff_group') { try { const groups = typeof value === 'string' ? JSON.parse(value) : value; return Array.isArray(groups) ? groups.join(', ') || 'não informado' : String(value); } catch { return String(value); } }
   if (field === 'dc_power_mwp') return `${Number(value).toLocaleString('pt-BR')} MWp`;
   if (field === 'physical_progress') return `${Number(value).toLocaleString('pt-BR')}%`;
   if (['customer_consumption_mwh'].includes(field)) return `${Number(value).toLocaleString('pt-BR')} MWh/mês`;

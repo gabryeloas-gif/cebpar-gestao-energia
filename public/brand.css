@@ -146,6 +146,16 @@
 .crm-stages article { display: grid; grid-template-columns: 7px 1fr auto; align-items: center; gap: 7px; min-height: 44px; padding: 8px; border-radius: 8px; background: #f5fafc; color: #547184; font-size: 11px; }
 .crm-stages i { width: 7px; height: 24px; border-radius: 8px; }
 .crm-stages b { color: #003f6b; font-size: 17px; }
+.dialog fieldset[hidden] { display: none !important; }
+.tariff-options { margin: 0; padding: 0; border: 0; }
+.tariff-options legend { margin-bottom: 5px; font-size: 13px; font-weight: 650; }
+.tariff-options p { margin: 0 0 9px; color: #668197; font-size: 12px; }
+.tariff-options > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.tariff-option { display: inline-flex; grid-template-columns: none; align-items: center; gap: 6px; padding: 7px 9px; border: 1px solid #d5e2ea; border-radius: 8px; background: #f8fbfd; color: #294d64; font-size: 12px; font-weight: 700; }
+.tariff-option input { width: 15px; height: 15px; padding: 0; accent-color: #005f9e; }
+.tariff-option.blue { border-color: #9bc8e5; background: #edf7fd; color: #005f9e; }
+.tariff-option.green { border-color: #a9d7c7; background: #edf8f3; color: #176a50; }
+.tariff-option.green input { accent-color: #176a50; }
 
 @media (max-width: 900px) {
   .dashboard-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
