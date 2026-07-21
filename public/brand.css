@@ -96,6 +96,8 @@
 .dashboard-metrics span { display: block; color: #557184; font-size: 12px; }
 .dashboard-metrics strong { display: block; margin-top: 12px; color: #003f6b; font-size: clamp(21px, 2.4vw, 29px); letter-spacing: -.04em; }
 .dashboard-metrics small { color: #5b8198; font-size: .53em; letter-spacing: normal; }
+.dashboard-metrics article:nth-child(2) strong { position: relative; z-index: 1; font-size: clamp(16px, 1.55vw, 22px); white-space: nowrap; }
+.dashboard-metrics article:nth-child(2) .metric-accent { right: -42px; opacity: .68; }
 .metric-accent { position: absolute; right: -19px; bottom: -27px; width: 92px; height: 92px; border: 16px solid #d9effb; border-radius: 50%; }
 .metric-accent.gold { border-color: #f3e4c2; }
 .metric-accent.cyan { border-color: #cdeefa; }
