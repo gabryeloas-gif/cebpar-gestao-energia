@@ -138,6 +138,8 @@
 .audit-change > span { color: #456276; font-size: 12px; }
 .audit-change > span b { color: #174d71; }
 .audit-change small { color: #6c8494; font-size: 11px; }
+.table-wrap { max-height: calc(100vh - 184px); overflow: auto; }
+.table-wrap thead th { position: sticky; top: 0; z-index: 1; background: #fff; }
 
 @media (max-width: 900px) {
   .dashboard-metrics { grid-template-columns: repeat(2, minmax(0,1fr)); }
