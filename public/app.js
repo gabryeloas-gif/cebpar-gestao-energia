@@ -67,7 +67,7 @@ const pieGradient = groups => {
 };
 const reportDate = () => new Intl.DateTimeFormat('pt-BR', { dateStyle:'long' }).format(new Date());
 const pdfReport = (projects, totals) => {
-  const report = window.open('', '_blank', 'noopener,noreferrer,width=1100,height=800');
+  const report = window.open('', '_blank', 'width=1100,height=800');
   if (!report) { toast('Permita a abertura da janela para gerar o relatório em PDF.'); return; }
   const phaseGroups = groupBy(projects, 'phase');
   const statusGroups = groupBy(projects, 'status');
