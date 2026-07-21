@@ -51,7 +51,35 @@ form = (type,item) => {
   syncProjectContext();
 };
 async function remove(type,rid){if(!confirm('Arquivar este registro? Ele poderá ser restaurado pelo administrador.'))return;try{await api('/'+type+'/'+rid,{method:'DELETE'});toast('Registro enviado para a lixeira.');navigate(type)}catch(e){toast(e.message)}}
-async function audit(){const d=await api('/audit');$('#content').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Data e hora</th><th>Usuário</th><th>Módulo</th><th>Ação</th><th>Registro</th></tr></thead><tbody>${d.items.map(x=>`<tr><td>${dt(x.occurred_at)}</td><td>${esc(x.user_name)}</td><td>${esc(x.module)}</td><td>${esc(x.action)}</td><td>${esc(x.record_id)}</td></tr>`).join('')}</tbody></table></div>`}
+const auditLabels = { name:'nome do projeto',organization:'órgão ou cliente',project_type:'tipo de projeto',generation_mode:'modalidade da usina',business_model:'modelo de negócio',location:'localização',owner_name:'responsável interno',status:'status',phase:'fase atual',priority:'prioridade',dc_power_mwp:'potência DC',capex_estimated_cents:'CAPEX estimado',physical_progress:'avanço físico',related_project_id:'projeto relacionado',customer_consumption_mwh:'consumo do cliente',tariff_group:'grupo tarifário',average_demand_kw:'demanda média',charger_power_kw:'potência do carregador',charger_unit_count:'quantidade de carregadores',charging_time_hours:'tempo de carga',tariff_value_per_kwh:'valor da tarifa',description:'descrição',title:'título',due_date:'prazo',internal_owner:'responsável interno',external_owner:'responsável externo',activity_date:'data da atividade',activity_type:'tipo de atividade',document_type:'tipo de documento',document_date:'data do documento',sei_number:'número SEI',role:'perfil',active:'usuário ativo' };
+const auditModule = { projects:'projeto',pending:'pendência',activities:'andamento',documents:'documento',users:'usuário' };
+const auditIgnored = new Set(['id','code','created_at','created_by','updated_at','updated_by','version','last_activity_at','deleted_at','password_hash','password_salt']);
+const auditJson = value => { try { return typeof value === 'string' ? JSON.parse(value || '{}') : (value || {}); } catch { return {}; } };
+const auditValue = (field, value) => {
+  if (value === null || value === undefined || value === '') return 'não informado';
+  if (field === 'capex_estimated_cents') return money(Number(value));
+  if (field === 'dc_power_mwp') return `${Number(value).toLocaleString('pt-BR')} MWp`;
+  if (field === 'physical_progress') return `${Number(value).toLocaleString('pt-BR')}%`;
+  if (['customer_consumption_mwh'].includes(field)) return `${Number(value).toLocaleString('pt-BR')} MWh/mês`;
+  if (['average_demand_kw','charger_power_kw'].includes(field)) return `${Number(value).toLocaleString('pt-BR')} kW`;
+  if (field === 'charging_time_hours') return `${Number(value).toLocaleString('pt-BR')} horas`;
+  if (field === 'tariff_value_per_kwh') return `R$ ${Number(value).toLocaleString('pt-BR')}/kWh`;
+  if (typeof value === 'boolean' || field === 'active') return Number(value) ? 'sim' : 'não';
+  return String(value);
+};
+const auditDescription = item => {
+  const before = auditJson(item.before_json), after = auditJson(item.after_json), entity = auditModule[item.module] || item.module;
+  const name = after.name || before.name || after.title || before.title || after.description || before.description;
+  if (item.action === 'create') return `Adicionou ${entity}${name ? `: ${name}` : ''}.`;
+  if (item.action === 'archive') return `Arquivou ${entity}${name ? `: ${name}` : ''}.`;
+  if (item.action === 'restore') return `Restaurou ${entity}${name ? `: ${name}` : ''}.`;
+  const changed = [...new Set([...Object.keys(before),...Object.keys(after)])].filter(field => !auditIgnored.has(field) && JSON.stringify(before[field] ?? null) !== JSON.stringify(after[field] ?? null));
+  if (!changed.length) return 'Atualizou o registro.';
+  const entries = changed.slice(0, 3).map(field => `<span><b>${esc(auditLabels[field] || field)}:</b> ${esc(auditValue(field,before[field]))} → ${esc(auditValue(field,after[field]))}</span>`);
+  const extra = changed.length > 3 ? `<small>+ ${changed.length - 3} campo${changed.length - 3 === 1 ? '' : 's'} alterado${changed.length - 3 === 1 ? '' : 's'}</small>` : '';
+  return `<div class="audit-change"><strong>Alterou ${entity}${name ? `: ${esc(name)}` : ''}.</strong>${entries.join('')}${extra}</div>`;
+};
+async function audit(){const d=await api('/audit');$('#content').innerHTML=`<div class="table-wrap"><table class="audit-table"><thead><tr><th>Data e hora</th><th>Usuário</th><th>Módulo</th><th>Ação realizada</th></tr></thead><tbody>${d.items.map(x=>`<tr><td>${dt(x.occurred_at)}</td><td>${esc(x.user_name)}</td><td>${esc(auditModule[x.module] || x.module)}</td><td class="audit-detail">${auditDescription(x)}</td></tr>`).join('') || '<tr><td colspan="4" class="empty">Nenhuma alteração registrada.</td></tr>'}</tbody></table></div>`}
 async function users(){const d=await api('/users');$('#content').innerHTML=`<div class="toolbar"><span class="muted">Somente administradores acessam esta tela.</span><button class="primary" id="newuser">+ Usuário</button></div><div class="table-wrap"><table><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Ativo</th></tr></thead><tbody>${d.items.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.email)}</td><td>${role(x.role)}</td><td>${x.active?'Sim':'Não'}</td></tr>`).join('')}</tbody></table></div>`;$('#newuser').onclick=()=>{document.body.insertAdjacentHTML('beforeend',`<div class="modal"><form class="dialog" style="max-width:520px"><div class="dialog-head"><h3>Novo usuário</h3><button type="button" class="ghost close">Fechar</button></div><div class="form-grid"><label class="span2">Nome<input name="name" required></label><label class="span2">E-mail<input name="email" type="email" required></label><label>Perfil<select name="role"><option value="editor">Editor</option><option value="viewer">Visualizador</option><option value="admin">Administrador</option></select></label><label>Senha inicial<input name="password" type="password" required></label></div><div class="actions"><button class="primary">Criar usuário</button></div></form></div>`);$('.close').onclick=()=>$('.modal').remove();$('.dialog').onsubmit=async e=>{e.preventDefault();try{await api('/users',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(e.target)))});$('.modal').remove();toast('Usuário criado.');users()}catch(x){toast(x.message)}}}}
 const baseDashboard = dashboard;
 const palette = ['#005f9e','#008dcb','#c69a3a','#31a2d8','#405bd3','#6d84a5','#227a68','#ca6b4e'];
