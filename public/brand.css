@@ -39,3 +39,34 @@
 .dialog label[hidden] {
   display: none !important;
 }
+
+.portfolio-overview {
+  margin-top: 16px;
+  padding: 18px;
+  background: #fff;
+  border: 1px solid #dbe7ef;
+  border-radius: 13px;
+}
+
+.portfolio-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.portfolio-toolbar h3 { margin: 0; color: var(--green); }
+.portfolio-toolbar p { margin: 4px 0 0; color: #526b7c; font-size: 13px; }
+.project-visual-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+.project-visual { padding: 14px; border: 1px solid #d9e5ed; border-radius: 11px; background: #f9fcfe; }
+.project-visual-top,.project-visual-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #526b7c; }
+.project-visual-top b { color: var(--green2); }
+.project-visual h4 { margin: 11px 0 4px; color: #0b3552; font-size: 15px; }
+.project-visual p { height: 34px; margin: 0; color: #526b7c; font-size: 12px; }
+.project-progress { height: 8px; margin: 12px 0 8px; overflow: hidden; border-radius: 999px; background: #dce9f1; }
+.project-progress i { display: block; height: 100%; border-radius: inherit; background: var(--green2); }
+.project-visual-meta strong { color: var(--green); }
+.project-visual small { display: block; margin-top: 9px; color: #274d67; font-weight: 700; }
+
+@media (max-width: 520px) { .portfolio-toolbar { align-items: stretch; flex-direction: column; } }
