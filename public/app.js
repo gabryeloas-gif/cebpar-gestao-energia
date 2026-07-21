@@ -44,7 +44,7 @@ listing = async type => {
   await baseListing(type);
   if (type !== 'crm') return;
   const items = (await api('/crm')).items;
-  const stages = ['Prospecção','Qualificação','Levantamento de dados','Diagnóstico técnico-comercial','Proposta em elaboração','Proposta enviada','Negociação','Aguardando decisão do cliente','Contratação','Convertida em projeto'];
+  const stages = ['Prospecção','Qualificação','Levantamento de dados','Diagnóstico técnico-comercial','Proposta em elaboração','Proposta enviada','Negociação','Aguardando decisão do cliente','Contratação','Convertida em projeto','Perdida'];
   const counts = Object.fromEntries(stages.map(stage => [stage, items.filter(item => item.stage === stage).length]));
   $('#content')?.insertAdjacentHTML('afterbegin', `<section class="crm-pipeline"><div><p class="eyebrow">PIPELINE COMERCIAL</p><h3>Oportunidades em acompanhamento</h3></div><div class="crm-stages">${stages.map((stage,index) => `<article><i style="background:${palette[index % palette.length]}"></i><span>${esc(stage)}</span><b>${counts[stage]}</b></article>`).join('')}</div></section>`);
 };
